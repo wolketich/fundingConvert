@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Funding Data Converter</title>
+    <!-- Including Tailwind CSS for modern styling -->
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
@@ -11,6 +12,7 @@
     <div class="container mx-auto mt-10">
         <div class="bg-white shadow-md rounded-lg p-6">
             <h1 class="text-3xl font-bold text-center mb-4">Funding Data Converter</h1>
+            <p class="text-center text-gray-600 mb-6">Easily convert and merge your funding data with CHICK data, and download the results in a formatted Excel file.</p>
             <form id="upload-form" enctype="multipart/form-data" class="space-y-4">
                 <div>
                     <label for="file-funding-input" class="block text-sm font-medium text-gray-700">Upload Funding File</label>

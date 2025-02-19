@@ -15,13 +15,12 @@ def parse_allocation_description(description):
     rate = float(rate.replace("€", ""))
     return hours, rate
 
-# Identify term and non-term times
+# Function to identify term and non-term times
 def identify_term_non_term_times(hours_list):
     hours_list = sorted(set(hours_list))  # Remove duplicates and sort
     if len(hours_list) == 1:
         return str(hours_list[0])
     
-    # Group hours into term/non-term pairs
     pairs = []
     used = set()
     for i in range(len(hours_list)):
@@ -31,12 +30,10 @@ def identify_term_non_term_times(hours_list):
                 used.add(hours_list[i])
                 used.add(hours_list[j])
 
-    # If there are pairs, format them
     if pairs:
         pairs_str = [f"{pair[0]}/{pair[1]}" for pair in pairs]
         return ", ".join(pairs_str)
 
-    # If no pairs, format as changing hours
     remaining_hours = [str(hour) for hour in hours_list if hour not in used]
     return "-".join(remaining_hours)
 
@@ -51,7 +48,7 @@ def upload_file():
     df_funding = pd.read_excel(funding_file)
     df_chick = pd.read_excel(chick_file)
 
-    # Filter CHICK data
+    # Filter CHICK data where all claims are confirmed by the parent
     df_chick = df_chick[(df_chick['All Claims Confirmed by Parent?'] == 'Yes')]
 
     # Transform the funding data
