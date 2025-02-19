@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Funding Data Converter</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto mt-10">
+        <div class="bg-white shadow-md rounded-lg p-6">
+            <h1 class="text-3xl font-bold text-center mb-4">Funding Data Converter</h1>
+            <form id="upload-form" enctype="multipart/form-data" class="space-y-4">
+                <div>
+                    <label for="file-funding-input" class="block text-sm font-medium text-gray-700">Upload Funding File</label>
+                    <input type="file" id="file-funding-input" name="file-funding" accept=".xlsx" required class="mt-1 block w-full">
+                </div>
+                <div>
+                    <label for="file-chick-input" class="block text-sm font-medium text-gray-700">Upload CHICK File</label>
+                    <input type="file" id="file-chick-input" name="file-chick" accept=".xlsx" required class="mt-1 block w-full">
+                </div>
+                <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">Upload and Convert</button>
+            </form>
+            <div id="result" class="mt-6" style="display: none;">
+                <h2 class="text-center text-xl font-semibold mb-4">Conversion Result</h2>
+                <a id="download-link" href="#" class="w-full bg-green-600 text-white py-2 px-4 rounded-md text-center hover:bg-green-700" style="display: none;">Download Converted File</a>
+            </div>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='scripts.js') }}"></script>
+</body>
+</html>
