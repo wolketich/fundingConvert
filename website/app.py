@@ -1,10 +1,12 @@
-from flask import Flask, request, send_file, render_template
+from flask import Flask, request, send_file, render_template, jsonify
 import pandas as pd
 from datetime import datetime, timedelta
 import io
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill
 from openpyxl.utils.dataframe import dataframe_to_rows
+import os
+import json
 
 app = Flask(__name__)
 
@@ -45,8 +47,11 @@ def index():
 def upload_file():
     funding_file = request.files['file-funding']
     chick_file = request.files['file-chick']
+    children_file = request.files['file-children']
+    
     df_funding = pd.read_excel(funding_file)
     df_chick = pd.read_excel(chick_file)
+    df_children = pd.read_csv(children_file)
 
     # Filter CHICK data where all claims are confirmed by the parent
     df_chick = df_chick[(df_chick['All Claims Confirmed by Parent?'] == 'Yes')]
@@ -85,8 +90,11 @@ def upload_file():
 
     # Initialize the final output DataFrame
     months = ["Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul"]
-    output_columns = ["Name", "Date of Birth", "CHICK", "Claim Until", "Term/Non-Term/Changes", "Allocation Value"] + months
+    output_columns = ["Name", "Date of Birth", "CHICK", "Claim Until", "Term/Non-Term/Changes", "Allocation Value"] + months + ["Child ID"]
     output_df = pd.DataFrame(columns=output_columns)
+
+    unmatched_names = []
+    children_dict = df_children.set_index('Full Name')['Child ID'].to_dict()
 
     # Populate the final output DataFrame
     for name, group in grouped.groupby("Child Name"):
@@ -111,7 +119,20 @@ def upload_file():
                 row[month] = f"€{group[group['Month'] == month]['Allocation Value'].values[0]:.2f}"
             else:
                 row[month] = ""
+        if name in children_dict:
+            row["Child ID"] = children_dict[name]
+        else:
+            unmatched_names.append(name)
         output_df = pd.concat([output_df, pd.DataFrame([row])], ignore_index=True)
+
+    # Save unmatched names for manual matching
+    unmatched_file = "unmatched_names.json"
+    unmatched_data = {"unmatched": sorted(unmatched_names), "possibleMatches": df_children.to_dict(orient='records')}
+    with open(unmatched_file, "w") as file:
+        json.dump(unmatched_data, file)
+
+    if unmatched_names:
+        return jsonify(unmatched_data)
 
     # Convert DataFrame to Excel file with formatting
     output = io.BytesIO()
@@ -141,7 +162,66 @@ def upload_file():
     workbook.save(output)
     output.seek(0)
 
-    return send_file(output, download_name="funding_data_summary.xlsx", as_attachment=True)
+    # Save the file temporarily to serve it later
+    file_path = "funding_data_summary.xlsx"
+    with open(file_path, "wb") as f_out:
+        f_out.write(output.getvalue())
+
+    return jsonify({"fileUrl": file_path})
+
+@app.route('/finalize', methods=['POST'])
+def finalize_matches():
+    data = request.json
+    matches = {item['name']: item['id'] for item in data['matches']}
+
+    # Load the unmatched names and possible matches
+    unmatched_file = "unmatched_names.json"
+    with open(unmatched_file, "r") as file:
+        unmatched_data = json.load(file)
+
+    # Update the DataFrame with the manual matches
+    global output_df
+    for name in unmatched_data["unmatched"]:
+        if name in matches and matches[name]:
+            output_df.loc[output_df['Name'] == name, 'Child ID'] = matches[name]
+
+    # Convert DataFrame to Excel file with formatting
+    output = io.BytesIO()
+    workbook = Workbook()
+    worksheet = workbook.active
+
+    for r in dataframe_to_rows(output_df, index=False, header=True):
+        worksheet.append(r)
+
+    # Apply conditional formatting
+    red_fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
+    amber_fill = PatternFill(start_color="FFBF00", end_color="FFBF00", fill_type="solid")
+    yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+
+    for row in worksheet.iter_rows(min_row=2, max_row=worksheet.max_row, min_col=4, max_col=4):
+        for cell in row:
+            if cell.value:
+                claim_until_date = pd.to_datetime(cell.value, format="%d/%m/%Y", dayfirst=True)
+                days_diff = (claim_until_date - datetime.now()).days
+                if days_diff <= 7:
+                    cell.fill = red_fill
+                elif days_diff <= 14:
+                    cell.fill = amber_fill
+                elif days_diff <= 30:
+                    cell.fill = yellow_fill
+
+    workbook.save(output)
+    output.seek(0)
+
+    # Save the file temporarily to serve it later
+    file_path = "funding_data_summary.xlsx"
+    with open(file_path, "wb") as f_out:
+        f_out.write(output.getvalue())
+
+    # Clean up temporary files
+    os.remove(unmatched_file)
+
+    return jsonify({"fileUrl": file_path})
 
 if __name__ == '__main__':
     app.run(debug=True)
