@@ -57,6 +57,7 @@ def upload_file():
         child_name = row["Child"]
         allocation_date = datetime.strptime(row["Allocation Date"], "%d/%m/%Y")
         month = allocation_date.strftime("%b")
+        # Skip rows where allocation dates are not between Aug 2024 and July 2025
         if allocation_date < datetime(2024, 8, 1) or allocation_date > datetime(2025, 7, 31):
             continue
         hours, rate = parse_allocation_description(row["Allocation Description"])
