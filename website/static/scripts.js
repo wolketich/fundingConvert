@@ -31,6 +31,7 @@ document.getElementById('upload-form').addEventListener('submit', function(event
                     <label class="block text-sm font-medium text-gray-700">${item}</label>
                     <select class="mt-1 block w-full" data-name="${item}">
                         <option value="">-- Select a Match --</option>
+                        <option value="0">Skip</option>
                         ${data.possibleMatches.map(match => `<option value="${match['Child ID']}">${match['Full Name']}</option>`).join('')}
                     </select>
                 `;
@@ -54,7 +55,7 @@ document.getElementById('upload-form').addEventListener('submit', function(event
                     const selectedName = this.getAttribute('data-name');
                     document.querySelectorAll('select[data-name]').forEach(otherSelect => {
                         if (otherSelect !== this) {
-                            otherSelect.querySelector(`option[value="${selectedValue}"]`).remove();
+                            otherSelect.querySelector(`option[value="${selectedValue}"]`)?.remove();
                         }
                     });
                     if (selectedValue) {
@@ -68,7 +69,7 @@ document.getElementById('upload-form').addEventListener('submit', function(event
         } else {
             // If no unmatched names, directly show the result
             const downloadLink = document.getElementById('download-link');
-            downloadLink.href = data.fileUrl;
+            downloadLink.href = `/download/${data.fileUrl}`;
             downloadLink.download = 'funding_data_summary.xlsx';
             downloadLink.style.display = 'block';
             document.getElementById('result').style.display = 'block';
@@ -97,7 +98,7 @@ document.getElementById('finalize-button').addEventListener('click', function() 
     .then(response => response.json())
     .then(data => {
         const downloadLink = document.getElementById('download-link');
-        downloadLink.href = data.fileUrl;
+        downloadLink.href = `/download/${data.fileUrl}`;
         downloadLink.download = 'funding_data_summary.xlsx';
         downloadLink.style.display = 'block';
         document.getElementById('result').style.display = 'block';

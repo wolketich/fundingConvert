@@ -1,6 +1,6 @@
 from flask import Flask, request, send_file, render_template, jsonify
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
 import io
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill
@@ -94,6 +94,7 @@ def upload_file():
     output_df = pd.DataFrame(columns=output_columns)
 
     unmatched_names = []
+    matched_names = []
     children_dict = df_children.set_index('Full Name')['Child ID'].to_dict()
 
     # Populate the final output DataFrame
@@ -121,13 +122,19 @@ def upload_file():
                 row[month] = ""
         if name in children_dict:
             row["Child ID"] = children_dict[name]
+            matched_names.append(name)
         else:
             unmatched_names.append(name)
         output_df = pd.concat([output_df, pd.DataFrame([row])], ignore_index=True)
 
-    # Save unmatched names for manual matching
+    # Exclude automatically matched names from the possible matches
+    possible_matches = [match for match in df_children.to_dict(orient='records') if match['Full Name'] not in matched_names]
+
+    # Save the DataFrame and unmatched names for manual matching
+    output_df_file = "output_df.pkl"
+    output_df.to_pickle(output_df_file)
     unmatched_file = "unmatched_names.json"
-    unmatched_data = {"unmatched": sorted(unmatched_names), "possibleMatches": df_children.to_dict(orient='records')}
+    unmatched_data = {"unmatched": sorted(unmatched_names), "possibleMatches": possible_matches}
     with open(unmatched_file, "w") as file:
         json.dump(unmatched_data, file)
 
@@ -174,16 +181,17 @@ def finalize_matches():
     data = request.json
     matches = {item['name']: item['id'] for item in data['matches']}
 
-    # Load the unmatched names and possible matches
+    # Load the DataFrame and unmatched names
+    output_df_file = "output_df.pkl"
+    output_df = pd.read_pickle(output_df_file)
     unmatched_file = "unmatched_names.json"
     with open(unmatched_file, "r") as file:
         unmatched_data = json.load(file)
 
     # Update the DataFrame with the manual matches
-    global output_df
     for name in unmatched_data["unmatched"]:
-        if name in matches and matches[name]:
-            output_df.loc[output_df['Name'] == name, 'Child ID'] = matches[name]
+        if name in matches:
+            output_df.loc[output_df['Name'] == name, 'Child ID'] = matches[name] if matches[name] else 0
 
     # Convert DataFrame to Excel file with formatting
     output = io.BytesIO()
@@ -220,8 +228,13 @@ def finalize_matches():
 
     # Clean up temporary files
     os.remove(unmatched_file)
+    os.remove(output_df_file)
 
     return jsonify({"fileUrl": file_path})
 
+@app.route('/download/<filename>', methods=['GET'])
+def download_file(filename):
+    return send_file(filename, as_attachment=True)
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0', port=5001)
